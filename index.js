@@ -43,12 +43,7 @@ app.post('/api/persons', (request, response)=>{
       error: 'name or number missing'
       })
     }
-    if (persons.some(p => p.name === body.name)){
-        return response.status(400).json({
-            error: 'name must be unique'
-            }) 
-    }
-  
+    
     const person = new Person( {
       name:body.name,
       number: body.number,
@@ -71,25 +66,36 @@ app.get('/api/persons', (request,response)=>{
   })
 })
 
-app.get('/api/persons/:id', (request, response)=> {
-  Person.findById(request.params.id).then(note=> {
-    response.json(note)
+app.get('/api/persons/:id', (request, response, next)=> {
+  Person.findById(request.params.id)
+  .then(person => {
+    if (person) {
+      response.json(person)
+    } else {
+      response.status(404).end()
+    }
   })
+  .catch(error => next(error))
 })
 
 app.get('/info', (request,response)=>{
-    response.send(`
-    <p>Phone book has info for ${persons.length} people</p>
-    <p>${getDate()}</p>
-    `)
+    let phonebookSize = 0 
+    Person.find({}).then(persons => {
+      phonebookSize = persons.length;
+      response.send(`
+          <p>Phone book has info for ${phonebookSize} people</p>
+          <p>${getDate()}</p>
+      `);
+  })
+  .catch(error => next(error))
 })
 
 app.put('/api/persons/:id', (request, response, next) => {
   const body = request.body
 
   const person = {
-    content: body.name,
-    important: body.number,
+    name: body.name,
+    number: body.number,
   }
 
   Person.findByIdAndUpdate(request.params.id, person, { new: true })
