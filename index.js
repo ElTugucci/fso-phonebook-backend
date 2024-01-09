@@ -6,7 +6,7 @@ const Person = require('./models/person')
 const cors = require('cors')
 const app = express()
 
-morgan.token('post-data', (req, res) => {
+morgan.token('post-data', (req ) => {
   return req.method === 'POST' ? JSON.stringify(req.body) : ''
 })
 
@@ -19,6 +19,8 @@ const errorHandler = (error, request, response, next) => {
 
   if (error.name === 'CastError') {
     return response.status(400).send({ error: 'malformatted id' })
+  } else if (error.name === 'ValidationError'){
+    return response.status(400).json({ error: error.message })
   }
   next(error)
 }
@@ -33,14 +35,8 @@ const getDate = () => {
   return date
 }
 
-app.post('/api/persons', (request, response) => {
+app.post('/api/persons', (request, response, next) => {
   const body = request.body
-
-  if (!body.name || !body.number) {
-    return response.status(400).json({
-      error: 'name or number missing'
-    })
-  }
 
   const person = new Person({
     name: body.name,
@@ -50,6 +46,7 @@ app.post('/api/persons', (request, response) => {
   person.save().then(savedPerson => {
     response.json(savedPerson)
   })
+    .catch(error => next(error))
 })
 
 app.get('/', (request, response) => {
@@ -74,7 +71,7 @@ app.get('/api/persons/:id', (request, response, next) => {
     .catch(error => next(error))
 })
 
-app.get('/info', (request, response) => {
+app.get('/info', (request, response, next) => {
   let phonebookSize = 0
   Person.find({}).then(persons => {
     phonebookSize = persons.length
@@ -94,16 +91,16 @@ app.put('/api/persons/:id', (request, response, next) => {
     number: body.number
   }
 
-  Person.findByIdAndUpdate(request.params.id, person, { new: true })
+  Person.findByIdAndUpdate(request.params.id, person, { new: true , runValidators: true })
     .then(updatedPerson => {
       response.json(updatedPerson)
     })
     .catch(error => next(error))
 })
 
-app.delete('/api/persons/:id', (request, response) => {
+app.delete('/api/persons/:id', (request, response, next) => {
   Person.findByIdAndDelete(request.params.id)
-    .then(result => {
+    .then(() => {
       response.status(204).end()
     })
     .catch(error => next(error))
